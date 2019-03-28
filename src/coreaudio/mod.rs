@@ -48,6 +48,7 @@ use self::coreaudio::sys::{
     kAudioDevicePropertyScopeOutput,
     kAudioDevicePropertyStreamConfiguration,
     kAudioDevicePropertyStreamFormat,
+    kAudioDevicePropertyBufferFrameSize,
     kAudioFormatFlagIsFloat,
     kAudioFormatFlagIsPacked,
     kAudioFormatLinearPCM,
@@ -698,8 +699,6 @@ impl EventLoop {
         buffer_size: &mut BufferSize,
     ) -> Result<StreamId, CreationError>
     {
-        *buffer_size = BufferSize::Default; // afaik there's no way to get the buffer size beforehand and it can change
-
         let mut audio_unit = audio_unit_from_device(device, false)?;
 
         // The scope and element for working with a device's output stream.
@@ -719,6 +718,20 @@ impl EventLoop {
         let sample_format = format.data_type;
         let bytes_per_channel = format.data_type.sample_size();
         type Args = render_callback::Args<data::Raw>;
+
+        // sets the buffer output size to buffer_size
+        match buffer_size {
+            BufferSize::Fixed(size) => {
+                audio_unit.set_property(
+                    kAudioDevicePropertyBufferFrameSize,
+                    Scope::Input,
+                    Element::Output,
+                    Some(size),
+                )?;
+            }
+            _ => ()
+        }
+
         audio_unit.set_render_callback(move |args: Args| unsafe {
             // If `run()` is currently running, then a callback will be available from this list.
             // Otherwise, we just fill the buffer with zeroes and return.
