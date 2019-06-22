@@ -478,7 +478,7 @@ impl EventLoop {
         buffer_size: &mut BufferSize,
     ) -> Result<StreamId, CreationError>
     {
-        *buffer_size = BufferSize::Default; // afaik there's no way to get the buffer size beforehand and it can change
+        // *buffer_size = BufferSize::Default; // afaik there's no way to get the buffer size beforehand and it can change
 
         // The scope and element for working with a device's input stream.
         let scope = Scope::Output;
@@ -643,6 +643,20 @@ impl EventLoop {
         let sample_format = format.data_type;
         let bytes_per_channel = format.data_type.sample_size();
         type Args = render_callback::Args<data::Raw>;
+
+        // Set the buffer input size to buffer_size
+        match buffer_size {
+            BufferSize::Fixed(size) => {
+                audio_unit.set_property(
+                    kAudioDevicePropertyBufferFrameSize,
+                    Scope::Input,
+                    Element::Input,
+                    Some(size),
+                )?;
+            }
+            _ => ()
+        }
+
         audio_unit.set_input_callback(move |args: Args| unsafe {
             let ptr = (*args.data.data).mBuffers.as_ptr() as *const AudioBuffer;
             let len = (*args.data.data).mNumberBuffers as usize;
@@ -719,7 +733,7 @@ impl EventLoop {
         let bytes_per_channel = format.data_type.sample_size();
         type Args = render_callback::Args<data::Raw>;
 
-        // sets the buffer output size to buffer_size
+        // Set the buffer output size to buffer_size
         match buffer_size {
             BufferSize::Fixed(size) => {
                 audio_unit.set_property(
